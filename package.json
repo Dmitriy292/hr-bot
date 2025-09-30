@@ -1,0 +1,42 @@
+{
+  "name": "hr-bot-sqlite",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lightweight NestJS + Prisma (SQLite) + Telegraf bot with Q&A and Excel-based notifications",
+  "scripts": {
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "build": "nest build",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:studio": "prisma studio",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\""
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.4.7",
+    "@nestjs/config": "^3.2.2",
+    "@nestjs/core": "^10.4.7",
+    "@nestjs/platform-express": "^10.4.7",
+    "@nestjs/schedule": "^3.0.4",
+    "@prisma/client": "^6.6.0",
+    "axios": "^1.12.2",
+    "date-fns": "^3.6.0",
+    "helmet": "^7.1.0",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.1",
+    "telegraf": "^4.16.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.4.5",
+    "@types/node": "^20.11.30",
+    "prettier": "^3.3.3",
+    "prisma": "^6.6.0",
+    "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

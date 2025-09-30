@@ -1,0 +1,40 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Question {
+  id         Int      @id @default(autoincrement())
+  question   String
+  answer     String
+  document   String?
+  createdAt  DateTime @default(now())
+}
+
+model Event {
+  id            String         @id @default(uuid())
+  name          String
+  message       String
+  createdAt     DateTime       @default(now())
+  notifications Notification[]
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  at        DateTime
+  delivered Boolean  @default(false)
+
+  @@index([delivered, at])
+}
+
+/// 👇 Новая таблица подписчиков (все, кто когда-либо писал боту)
+model Subscriber {
+  chatId    String   @id           // храним как строку (без потери точности для -100...)
+  createdAt DateTime @default(now())
+}
