@@ -5,7 +5,6 @@ import { parse } from 'date-fns';
 
 function two(n: number){ return String(n).padStart(2,'0'); }
 
-// Excel serial to Date
 function excelSerialToDate(n: number): Date {
   const ms = (n - 25569) * 86400 * 1000;
   return new Date(ms);

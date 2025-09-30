@@ -234,7 +234,6 @@ export class TelegramService implements OnModuleInit {
     console.log('Telegram bot is running');
   }
 
-  /** 👇 теперь рассылаем всем, кто писал боту (из таблицы Subscriber) */
   async broadcast(text: string) {
     const chatIds = await this.subscribers.allChatIds();
     for (const id of chatIds) {
