@@ -58,13 +58,13 @@ const DELETE_PAGE_SIZE = 10;
 @Injectable()
 export class TelegramService implements OnModuleInit {
   private bot: Telegraf<MyContext>;
-  private allowedChatIds: string[];   // 👈 теперь как строки
+  private allowedChatIds: string[];   
   private adminChatIds: string[];
 
   constructor(
     private readonly config: ConfigService,
     private readonly questions: QuestionsService,
-    private readonly subscribers: SubscribersService,                  // 👈
+    private readonly subscribers: SubscribersService,                  
     @Inject(forwardRef(() => NotificationsService))
     private readonly notifications: NotificationsService,
   ) {
@@ -76,7 +76,7 @@ export class TelegramService implements OnModuleInit {
     this.allowedChatIds = allowed
       .split(',')
       .map((s) => s.trim())
-      .filter(Boolean); // строки, без Number(), чтобы не терять точность для -100...
+      .filter(Boolean); 
 
     const admin = this.config.get<string>('ADMIN_IDS') || allowed;
     this.adminChatIds = admin
@@ -88,7 +88,7 @@ export class TelegramService implements OnModuleInit {
   async onModuleInit() {
     this.bot.use(session());
 
-    // Middleware: маркер прав + авто-подписка
+    
     this.bot.use(async (ctx, next) => {
       ctx.session = ctx.session || {};
       const chatIdStr = String(ctx.chat?.id ?? '');
@@ -99,7 +99,7 @@ export class TelegramService implements OnModuleInit {
         resetSessionState(ctx.session);
       }
 
-      // каждый апдейт — сохраняем/обновляем подписчика
+      
       if (chatIdStr) {
         try { await this.subscribers.add(chatIdStr); } catch {}
       }
