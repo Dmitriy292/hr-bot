@@ -2,12 +2,50 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as XLSX from 'xlsx';
 import { parse } from 'date-fns';
+import { Prisma } from '@prisma/client';
+
+const MOSCOW_TIMEZONE = 'Europe/Moscow';
 
 function two(n: number){ return String(n).padStart(2,'0'); }
 
 function excelSerialToDate(n: number): Date {
   const ms = (n - 25569) * 86400 * 1000;
   return new Date(ms);
+}
+
+function moscowParts(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: MOSCOW_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+  return {
+    year: parseInt(get('year'), 10),
+    month: parseInt(get('month'), 10),
+    day: parseInt(get('day'), 10),
+    hour: parseInt(get('hour'), 10),
+    minute: parseInt(get('minute'), 10),
+  };
+}
+
+function parseMoscowDateTime(dateStr: string, timeStr: string): Date | null {
+  const dateMatch = dateStr.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  const timeMatch = timeStr.match(/^(\d{2}):(\d{2})$/);
+  if (!dateMatch || !timeMatch) return null;
+  const day = parseInt(dateMatch[1], 10);
+  const monthIdx = parseInt(dateMatch[2], 10) - 1;
+  const year = parseInt(dateMatch[3], 10);
+  const hours = parseInt(timeMatch[1], 10);
+  const minutes = parseInt(timeMatch[2], 10);
+
+  // Формируем ISO с явным смещением +03:00, чтобы избежать лишних автоконверсий
+  const iso = `${year}-${two(monthIdx + 1)}-${two(day)}T${two(hours)}:${two(minutes)}:00+03:00`;
+  return new Date(iso);
 }
 
 function splitList(raw: any): string[] {
@@ -27,11 +65,13 @@ function splitList(raw: any): string[] {
 function normalTime(raw: any): string | null {
   if (raw === null || raw === undefined) return null;
   if (raw instanceof Date) {
-    return `${two(raw.getHours())}:${two(raw.getMinutes())}`;
+    const { hour, minute } = moscowParts(raw);
+    return `${two(hour)}:${two(minute)}`;
   }
   if (typeof raw === 'number') {
     const d = excelSerialToDate(raw);
-    return `${two(d.getHours())}:${two(d.getMinutes())}`;
+    const { hour, minute } = moscowParts(d);
+    return `${two(hour)}:${two(minute)}`;
   }
   const str = String(raw).trim();
   if (!str) return null;
@@ -52,11 +92,13 @@ function normalTime(raw: any): string | null {
 function normalDate(raw: any): string | null {
   if (raw === null || raw === undefined) return null;
   if (raw instanceof Date) {
-    return `${two(raw.getDate())}.${two(raw.getMonth()+1)}.${raw.getFullYear()}`;
+    const { day, month, year } = moscowParts(raw);
+    return `${two(day)}.${two(month)}.${year}`;
   }
   if (typeof raw === 'number') {
     const d = excelSerialToDate(raw);
-    return `${two(d.getDate())}.${two(d.getMonth()+1)}.${d.getFullYear()}`;
+    const { day, month, year } = moscowParts(d);
+    return `${two(day)}.${two(month)}.${year}`;
   }
   let s = String(raw).trim();
   if (!s) return null;
@@ -142,7 +184,7 @@ export class NotificationsService {
         const name = names[idx];
         const message = msgs[idx] ?? msgs[0];
 
-        await this.prisma.$transaction(async tx => {
+        await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           const ev = await tx.event.create({ data: { name, message } });
           events++;
 
@@ -150,8 +192,18 @@ export class NotificationsService {
           for (const d of dates){
             for (const t of times){
               try {
-                const at = parse(`${d} ${t}`, 'dd.MM.yyyy HH:mm', new Date());
-                if (!isNaN(at.getTime())) data.push({ eventId: ev.id, at });
+                let at =
+                  parseMoscowDateTime(d, t) ??
+                  parse(`${d} ${t}`, 'dd.MM.yyyy HH:mm', new Date()); // fallback for unexpected input
+                if (!isNaN(at.getTime())) {
+                  // Если по какой-то причине время ушло "в прошлое" относительно момента импорта,
+                  // сдвигаем на сутки вперёд, чтобы уведомления не улетали мгновенно.
+                  const now = Date.now();
+                  if (at.getTime() <= now) {
+                    at = new Date(at.getTime() + 24 * 60 * 60 * 1000);
+                  }
+                  data.push({ eventId: ev.id, at });
+                }
               } catch {}
             }
           }

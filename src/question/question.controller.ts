@@ -1,6 +1,5 @@
 import { Controller, Get, Post, Body, Delete, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
-import { QuestionsService } from './question.service';
-import { Question } from '@prisma/client';
+import { QuestionsService, QuestionModel } from './question.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
 
@@ -10,20 +9,20 @@ export class QuestionsController {
 
   @UseGuards(ApiKeyGuard)
   @Post()
-  async createQuestion(@Body() data: CreateQuestionDto): Promise<Question> {
+  async createQuestion(@Body() data: CreateQuestionDto): Promise<QuestionModel> {
     return this.questionsService.createQuestion(data);
   }
 
   // Защитили чтение списка тоже, хотя бот обращается к сервису напрямую
   @UseGuards(ApiKeyGuard)
   @Get()
-  async getQuestions(): Promise<Question[]> {
+  async getQuestions(): Promise<QuestionModel[]> {
     return this.questionsService.getQuestions();
   }
 
   @UseGuards(ApiKeyGuard)
   @Get('search')
-  async searchQuestion(@Query('keywords') keywords: string): Promise<Question | null> {
+  async searchQuestion(@Query('keywords') keywords: string): Promise<QuestionModel[]> {
     const arr = (keywords || '')
       .split(',')
       .map(k => k.trim())

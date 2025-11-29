@@ -34,6 +34,9 @@ export class NotificationsWorker implements OnModuleInit, OnModuleDestroy {
       const due = await this.notifications.dueNotifications(now, this.graceMs);
       if (due.length > 0) this.logger.log(`Sending ${due.length} notifications...`);
       for (const n of due) {
+        if (n.at.getTime() > now.getTime() + this.graceMs) {
+          continue;
+        }
         const text = `📣 ${n.event.name}\n${n.event.message}`;
         try {
           await this.telegram.broadcast(text);
