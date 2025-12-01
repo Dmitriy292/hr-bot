@@ -59,7 +59,6 @@ const DELETE_PAGE_SIZE = 10;
 export class TelegramService implements OnModuleInit {
   private bot: Telegraf<MyContext>;
   private allowedChatIds: string[];   
-  private adminChatIds: string[];
 
   constructor(
     private readonly config: ConfigService,
@@ -77,12 +76,6 @@ export class TelegramService implements OnModuleInit {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean); 
-
-    const admin = this.config.get<string>('ADMIN_IDS') || allowed;
-    this.adminChatIds = admin
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
   }
 
   async onModuleInit() {
@@ -92,8 +85,8 @@ export class TelegramService implements OnModuleInit {
     this.bot.use(async (ctx, next) => {
       ctx.session = ctx.session || {};
       const chatIdStr = String(ctx.chat?.id ?? '');
-      ctx.session.isAdmin = this.adminChatIds.includes(chatIdStr);
-      ctx.session.isAllowed = ctx.session.isAdmin || this.allowedChatIds.includes(chatIdStr);
+      ctx.session.isAllowed = this.allowedChatIds.includes(chatIdStr);
+      ctx.session.isAdmin = ctx.session.isAllowed; // админ = любой из разрешённых
       const incomingText = (ctx.message as any)?.text?.trim();
       if (incomingText && incomingText.startsWith('/') ) {
         resetSessionState(ctx.session);
@@ -498,18 +491,32 @@ export class TelegramService implements OnModuleInit {
 
     // Fallback для текста вне состояний
     this.bot.on('text', async (ctx) => {
-      await ctx.reply('Используй команды: /question /searchquestion /add /delete /upload /myid');
+      const isAdmin = !!ctx.session?.isAdmin;
+      const cmds = isAdmin
+        ? ['/question', '/searchquestion', '/add', '/delete', '/upload', '/myid']
+        : ['/question', '/searchquestion', '/myid'];
+      await ctx.reply(`Используй команды: ${cmds.join(' ')}`);
     });
 
     await this.bot.telegram.setMyCommands([
       { command: 'start', description: 'Запуск бота' },
       { command: 'question', description: 'Список Q&A' },
       { command: 'searchquestion', description: 'Поиск ответа по ключевым словам' },
-      { command: 'add', description: 'Добавить Q&A (для авторизованных)' },
-      { command: 'delete', description: 'Удалить Q&A (для авторизованных)' },
-      { command: 'upload', description: 'Загрузить Excel с событиями (для авторизованных)' },
       { command: 'myid', description: 'Показать ваш Telegram ID' },
-    ]);
+    ], { scope: { type: 'default' } });
+
+    // Команды для админов — через scoped commands по chat_id (все allowed = admin)
+    for (const chatId of this.allowedChatIds) {
+      await this.bot.telegram.setMyCommands([
+        { command: 'start', description: 'Запуск бота' },
+        { command: 'question', description: 'Список Q&A' },
+        { command: 'searchquestion', description: 'Поиск ответа по ключевым словам' },
+        { command: 'add', description: 'Добавить Q&A (для авторизованных)' },
+        { command: 'delete', description: 'Удалить Q&A (для авторизованных)' },
+        { command: 'upload', description: 'Загрузить Excel с событиями (для авторизованных)' },
+        { command: 'myid', description: 'Показать ваш Telegram ID' },
+      ], { scope: { type: 'chat', chat_id: chatId } });
+    }
 
     await this.bot.launch();
     console.log('Telegram bot is running');
